@@ -1,0 +1,6 @@
+pyyaml
+adafruit-circuitpython-servokit
+flask
+requests
+opencv-python
+pyzmq

@@ -1,0 +1,18 @@
+components:
+  zmq_can:
+    server_mode: True
+
+    actuator:
+      Steering:
+        listens: ['steering']
+        range: [-1, 1]
+      Throttle:
+        listens: ['throttle']
+
+  camera:
+    publication: ['cam/image']
+    device: '/dev/video0'
+
+  web_controller:
+    subscription: ['web_control', 'cam/image']
+    publication: ['web_steering', 'web_throttle', 'web_record', 'web_autonomous']
