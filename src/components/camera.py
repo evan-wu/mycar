@@ -35,6 +35,7 @@ class Camera(Component):
         self.capture_height = capture_height
 
         self.camera = None
+        self.running = False
 
     def start(self) -> bool:
         if 'darwin' in sys.platform.lower() or 'windows' in sys.platform.lower():
@@ -55,6 +56,7 @@ class Camera(Component):
 
         self.camera.read()
         time.sleep(2)  # warm up
+        self.running = True
         logging.info('Camera started.')
         return True
 
@@ -71,9 +73,11 @@ class Camera(Component):
                 device, output_width, output_height)
 
     def run(self):
-        while True:
+        while self.running:
             _, frame = self.camera.read()
             self.publish_message(frame)
 
     def shutdown(self):
+        self.running = False
+        time.sleep(1)
         logging.info('Camera shutdown.')
