@@ -2,12 +2,16 @@ components:
   zmq_can:
     server_mode: True
 
-    actuator:
-      Steering:
-        listens: ['steering']
-        range: [-1, 1]
-      Throttle:
-        listens: ['throttle']
+  actuator:
+    PWMSteering:
+      subscription: ['web_steering']
+      channel: 0
+
+    PWMThrottle:
+      subscription: ['web_throttle']
+      channel: 1
+      min_throttle: -0.3
+      max_throttle: 0.3
 
   camera:
     publication: ['cam/image']

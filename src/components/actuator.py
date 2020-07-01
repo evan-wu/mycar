@@ -80,9 +80,9 @@ class PWMThrottle(Component):
 
     def on_message(self, channel, throttle):
         if throttle == 0:
-            self.controller.set_throttle(self.channel, 0)
+            pca9685.set_throttle(self.channel, 0)
         elif throttle is not None:
-            self.controller.set_throttle(self.channel, map_range(throttle, -1, 1, self.min_throttle, self.max_throttle))
+            pca9685.set_throttle(self.channel, map_range(throttle, -1, 1, self.min_throttle, self.max_throttle))
 
     def shutdown(self):
         logging.info('PWM Throttle shutdown.')
