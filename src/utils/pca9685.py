@@ -11,10 +11,7 @@ class PCA9685:
 
     def __init__(self,
                  channels: int = 16,
-                 address: int = 0x40,
-                 frequency: int = 50,
-                 busnum: int = None,
-                 init_delay=0.1):
+                 address: int = 0x40):
         servokit = ServoKit(channels=channels, address=address)
         self._servo = servokit
 
