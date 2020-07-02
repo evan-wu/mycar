@@ -15,8 +15,8 @@ components:
 
   camera:
     publication: ['cam/image']
-    device: '/dev/video0'
+    device: 0
 
   web_controller:
-    subscription: ['web_control', 'cam/image']
+    subscription: ['cam/image']
     publication: ['web_steering', 'web_throttle', 'web_record', 'web_autonomous']

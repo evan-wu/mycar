@@ -1,10 +1,12 @@
 # coding=utf-8
 from components import Component
-import os
-import subprocess
 import logging
 from utils import map_range
 import time
+from flask import Flask, request, Response, render_template
+import cv2
+
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 
 class WebController(Component):
@@ -15,7 +17,7 @@ class WebController(Component):
     def __init__(self,
                  stream_width=480,
                  stream_height=270,
-                 stream_frame_rate=10,
+                 stream_frame_rate=20,
                  min_control_interval=0.02
                  ):
         super(WebController, self).__init__()
@@ -25,7 +27,6 @@ class WebController(Component):
         self.min_control_interval = min_control_interval
 
         self.image = None
-        self.web_server = None
 
         # controls
         self.throttle = 0.0
@@ -35,29 +36,34 @@ class WebController(Component):
         self.last_control_time = 0
         self.last_stream_time = 0
 
-    def start(self):
-        # start web server
-        pwd = os.path.abspath('.')
-        if pwd.endswith('src'):
-            pwd = os.path.abspath('components')
-        else:
-            pwd = os.path.abspath('src/components')
-
-        self.web_server = subprocess.Popen(
-            ["python3", pwd + "/web_controller_server.py",
-             self.subscription[0],  # web controls signal
-             self.subscription[1],  # camera live stream
-             str(self.stream_width),
-             str(self.stream_height),
-             str(self.stream_frame_rate)])
-
+    def start(self) -> bool:
         logging.info('WebController started.')
+        return True
 
-    def on_message(self, channel, control_input):
-        if channel == self.subscription[0]:  # the first is the web control signal channel
+    def run(self):
+        app = Flask(__name__)
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # no cache
+
+        def gen_frames():
+            while True:
+                # get the camera frame
+                if self.image is not None and (time.time() - self.last_stream_time) > (1.0 / self.stream_frame_rate):
+                    self.last_stream_time = time.time()
+
+                    frame = cv2.resize(self.image, (480, 270))
+                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 20]
+                    _, buffer = cv2.imencode('.jpg', frame, encode_param)
+                    captured = buffer.tostring()
+
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + captured + b'\r\n')  # concat frame one by one
+
+        @app.route('/control')
+        def send_control():
             if time.time() - self.last_control_time < self.min_control_interval:
-                return None
+                return ''
 
+            control_input = request.args
             logging.info('control input: {}'.format(control_input))
             if 'steer' in control_input:
                 steer = map_range(int(control_input['steer']), -100.0, 100.0, -1.0, 1.0)
@@ -72,7 +78,23 @@ class WebController(Component):
 
             self.publish_message(self.steering, self.throttle, self.record, self.autonomous)
             self.last_control_time = time.time()
+            return ''
+
+        @app.route('/video_feed')
+        def video_feed():
+            """Video streaming route. Put this in the src attribute of an img tag."""
+            return Response(gen_frames(),
+                            mimetype='multipart/x-mixed-replace; boundary=frame')
+
+        @app.route('/')
+        def index():
+            """Video streaming home page."""
+            return render_template('index.html')
+
+        app.run(host='0.0.0.0', port=8080)
+
+    def on_message(self, channel, image):
+        self.image = image
 
     def shutdown(self):
-        self.web_server.kill()
         logging.info('WebController shutdown.')
