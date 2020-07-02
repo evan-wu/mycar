@@ -15,7 +15,7 @@ components:
 
   camera:
     publication: ['cam/image']
-    device: 0
+    device: '/dev/video0'
 
   web_controller:
     subscription: ['cam/image']
