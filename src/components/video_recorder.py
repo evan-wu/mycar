@@ -12,7 +12,7 @@ class VideoRecorder(Component):
     subscriptions: camera input, record switch
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, frame_rate: int = 20, path: str = None, name: str = None,
+    def __init__(self, width: int = 1280, height: int = 720, frame_rate: int = 7, path: str = None, name: str = None,
                  auto_start: bool = False):
         super(VideoRecorder, self).__init__()
         self.width = width
