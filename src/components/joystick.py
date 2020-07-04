@@ -182,9 +182,10 @@ class JoystickController(Component):
     def run(self):
         # start independent thread to output control signals
         def output():
-            if time.time() - self.last_output > self.output_interval:
-                self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
-                self.last_output = time.time()
+            while self.running:
+                if time.time() - self.last_output > self.output_interval:
+                    self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
+                    self.last_output = time.time()
 
         t = Thread(target=output, daemon=True)
         t.start()
