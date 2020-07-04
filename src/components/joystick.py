@@ -19,7 +19,7 @@ class JoystickController(Component):
     AUTONOMOUS_BUTTON = 'Y'
     RECORD_BUTTON = 'B'
 
-    def __init__(self, axis_keys: dict, poll_delay=0.01, button_keys: dict = {}, device='/dev/input/js0'):
+    def __init__(self, axis_keys: dict, poll_delay=0.1, button_keys: dict = {}, device='/dev/input/js0'):
         """
         Args:
             axis_keys: (dict): joystick axis key mapping.
@@ -154,8 +154,8 @@ class JoystickController(Component):
         """
         toggle recording on/off
         """
-        self.recording = not self.recording
-        logging.info('recording: {}'.format(self.recording))
+        self.record = not self.record
+        logging.info('recording: {}'.format(self.record))
 
     def _toggle_autonomous(self):
         """
