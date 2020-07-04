@@ -6,6 +6,7 @@ import logging
 import os
 import array
 import struct
+from threading import Thread
 
 
 # Credits: Joystick refers to https://github.com/autorope/donkeycar/blob/dev/donkeycar/parts/controller.py
@@ -19,7 +20,7 @@ class JoystickController(Component):
     AUTONOMOUS_BUTTON = 'Y'
     RECORD_BUTTON = 'B'
 
-    def __init__(self, axis_keys: dict, output_interval=0.1, button_keys: dict = {}, device='/dev/input/js0'):
+    def __init__(self, axis_keys: dict, output_interval=0.02, button_keys: dict = {}, device='/dev/input/js0'):
         """
         Args:
             axis_keys: (dict): joystick axis key mapping.
@@ -179,6 +180,15 @@ class JoystickController(Component):
         logging.info('throttle_scale: {}'.format(self.throttle_scale))
 
     def run(self):
+        # start independent thread to output control signals
+        def output():
+            if time.time() - self.last_output > self.output_interval:
+                self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
+                self.last_output = time.time()
+
+        t = Thread(target=output, daemon=True)
+        t.start()
+
         while self.running:
             # poll the joystick input
             button, button_state, axis, axis_val = self._poll_joystick()
@@ -191,10 +201,6 @@ class JoystickController(Component):
 
             if button and button_state == 0 and button in self.button_up_trigger_map and self.button_up_trigger_map[button]:
                 self.button_up_trigger_map[button]()
-
-            if time.time() - self.last_output > self.output_interval:
-                self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
-                self.last_output = time.time()
 
     def _poll_joystick(self):
         """
