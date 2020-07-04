@@ -192,7 +192,7 @@ class JoystickController(Component):
             if button and button_state == 0 and button in self.button_up_trigger_map and self.button_up_trigger_map[button]:
                 self.button_up_trigger_map[button]()
 
-            if time.time() - self.last_ouput > self.output_interval:
+            if time.time() - self.last_output > self.output_interval:
                 self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
                 self.last_output = time.time()
 
