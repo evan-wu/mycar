@@ -18,7 +18,7 @@ components:
     device: '/dev/video0'
 
   video_recorder:
-    subscriptions: ['cam/image', 'js_record']
+    subscription: ['cam/image', 'js_record']
     width: 640
     height: 480
 
