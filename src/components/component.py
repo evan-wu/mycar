@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 
 
 class Component(object):
@@ -45,8 +46,7 @@ class Component(object):
             raise ValueError("{} - can not publish message without 'CAN' defined in config file.".format(self))
 
         if len(self.publication) != len(content):
-            raise \
-                ValueError("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
-                           .format(self, len(self.publication), len(content)))
-        for i in range(len(content)):
+            logging.warning("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
+                            .format(self, len(self.publication), len(content)))
+        for i in range(len(self.publication)):
             self.can.publish(self.publication[i], content[i])
