@@ -13,6 +13,8 @@ from threading import Thread
 class JoystickController(Component):
     """
     Joystick Controller.
+
+    publications: steering, throttle, autonomous, record
     """
 
     STEERING_AXIS = 'left_stick_horz'

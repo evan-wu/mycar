@@ -9,6 +9,7 @@ import time
 class Camera(Component):
     """
     IMX219 CSI Camera and USB camera.
+    publications: camera captured image
     """
 
     def __init__(self,

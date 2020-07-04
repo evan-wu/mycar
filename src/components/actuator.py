@@ -10,6 +10,8 @@ pca9685 = PCA9685()
 class PWMSteering(Component):
     """
     Send PWM to servo to control the turning of the Car.
+
+    subscriptions: steering input
     """
     MIN_STEERING = -1
     MAX_STEERING = 1
@@ -60,6 +62,8 @@ class PWMSteering(Component):
 class PWMThrottle(Component):
     """
     Send PWM to ESC to control the speed of the Car.
+
+    subscriptions: throttle input
     """
 
     def __init__(self,

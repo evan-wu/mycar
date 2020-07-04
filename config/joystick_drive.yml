@@ -17,6 +17,11 @@ components:
     publication: ['cam/image']
     device: '/dev/video0'
 
+  video_recorder:
+    subscriptions: ['cam/image', 'js_record']
+    width: 640
+    height: 480
+
   joystick:
     device: '/dev/input/js0'
     publication: ['js_steering', 'js_throttle', 'js_autonomous', 'js_record']

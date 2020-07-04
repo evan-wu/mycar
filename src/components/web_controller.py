@@ -12,6 +12,9 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 class WebController(Component):
     """
     Web UI to control the movement of the Car.
+
+    subscriptions: camera image
+    publications: steering, throttle, record, autonomous
     """
 
     def __init__(self,
