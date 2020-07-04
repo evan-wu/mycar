@@ -19,7 +19,7 @@ class JoystickController(Component):
     AUTONOMOUS_BUTTON = 'Y'
     RECORD_BUTTON = 'B'
 
-    def __init__(self, axis_keys: dict, poll_delay=0.0, button_keys: dict = {}, device='/dev/input/js0'):
+    def __init__(self, axis_keys: dict, poll_delay=0.01, button_keys: dict = {}, device='/dev/input/js0'):
         """
         Args:
             axis_keys: (dict): joystick axis key mapping.

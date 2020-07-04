@@ -47,6 +47,6 @@ class Component(object):
 
         if len(self.publication) != len(content):
             logging.warning("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
-                            .format(self, len(self.publication), len(content)))
+                            .format(self, len(content), len(self.publication)))
         for i in range(len(self.publication)):
             self.can.publish(self.publication[i], content[i])

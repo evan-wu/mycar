@@ -4,11 +4,11 @@ components:
 
   actuator:
     PWMSteering:
-      subscription: ['web_steering']
+      subscription: ['js_steering']
       channel: 0
 
     PWMThrottle:
-      subscription: ['web_throttle']
+      subscription: ['js_throttle']
       channel: 1
       min_throttle: -0.3
       max_throttle: 0.3
@@ -19,6 +19,7 @@ components:
 
   joystick:
     device: '/dev/input/js0'
+    publication: ['js_steering', 'js_throttle', 'js_autonomous', 'js_record']
     axis_keys:
       'left_stick_horz': 0x00
       'left_stick_vert': 0x01
