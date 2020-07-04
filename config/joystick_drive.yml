@@ -2,20 +2,20 @@ components:
   zmq_can:
     server_mode: True
 
-    actuator:
-      PWMSteering:
-        subscription: ['web_steering']
-        channel: 0
+  actuator:
+    PWMSteering:
+      subscription: ['web_steering']
+      channel: 0
 
-      PWMThrottle:
-        subscription: ['web_throttle']
-        channel: 1
-        min_throttle: -0.3
-        max_throttle: 0.3
+    PWMThrottle:
+      subscription: ['web_throttle']
+      channel: 1
+      min_throttle: -0.3
+      max_throttle: 0.3
 
-    camera:
-      publication: ['cam/image']
-      device: '/dev/video0'
+  camera:
+    publication: ['cam/image']
+    device: '/dev/video0'
 
   joystick:
     device: '/dev/input/js0'
