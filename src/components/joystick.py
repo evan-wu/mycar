@@ -19,7 +19,7 @@ class JoystickController(Component):
     AUTONOMOUS_BUTTON = 'Y'
     RECORD_BUTTON = 'B'
 
-    def __init__(self, axis_keys: dict, poll_delay=0.1, button_keys: dict = {}, device='/dev/input/js0'):
+    def __init__(self, axis_keys: dict, output_interval=0.1, button_keys: dict = {}, device='/dev/input/js0'):
         """
         Args:
             axis_keys: (dict): joystick axis key mapping.
@@ -28,7 +28,7 @@ class JoystickController(Component):
         """
         super(JoystickController, self).__init__()
         self.device = device
-        self.poll_delay = poll_delay
+        self.output_interval = output_interval
 
         self.throttle_scale = 1.0
         self.running = False
@@ -62,6 +62,7 @@ class JoystickController(Component):
 
         # output values
         self.steering, self.throttle, self.autonomous, self.record = 0.0, 0.0, False, False
+        self.last_output = 0
         if not os.path.exists(self.device):
             raise ValueError('Joystick device: {} is not found.'.format(self.device))
 
@@ -191,8 +192,9 @@ class JoystickController(Component):
             if button and button_state == 0 and button in self.button_up_trigger_map and self.button_up_trigger_map[button]:
                 self.button_up_trigger_map[button]()
 
-            self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
-            time.sleep(self.poll_delay)
+            if time.time() - self.last_ouput > self.output_interval:
+                self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
+                self.last_output = time.time()
 
     def _poll_joystick(self):
         """
