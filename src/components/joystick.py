@@ -14,7 +14,7 @@ class JoystickController(Component):
     """
     Joystick Controller.
 
-    publications: steering, throttle, autonomous, record
+    publications: steering, throttle, autonomous, record, throttle scale
     """
 
     STEERING_AXIS = 'left_stick_horz'
@@ -186,7 +186,7 @@ class JoystickController(Component):
         def output():
             while self.running:
                 if time.time() - self.last_output > self.output_interval:
-                    self.publish_message(self.steering, self.throttle, self.autonomous, self.record)
+                    self.publish_message(self.steering, self.throttle, self.autonomous, self.record, self.throttle_scale)
                     self.last_output = time.time()
 
         t = Thread(target=output, daemon=True)
