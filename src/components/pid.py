@@ -18,13 +18,13 @@ class PIDLineFollower(Component):
     publications: steering, throttle, image with control signal
     """
     def __init__(self,
-                 calibration_result: str = '../../config/calibration_result.pkl',
-                 roi: tuple = ((0, 0), (720, 1280)),
+                 calibration_result: str = './config/calibration_result.pkl',
+                 roi: tuple = ((0, 0), (1280, 720)),
                  camera_offset: int = 0,
                  white_threshold=80,
                  steer_interval=0.2,
                  train_mode=False,
-                 pid_params_file='../../config/pid_coefficients.pkl',
+                 pid_params_file='./config/pid_coefficients.pkl',
                  line_detect_window_height=50,
                  line_detect_window_width=120
                  ):
