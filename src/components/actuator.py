@@ -56,6 +56,7 @@ class PWMSteering(Component):
                                             self.full_right_angle)))
 
     def shutdown(self):
+        pca9685.set_angle(self.straight_angle)
         logging.info('PWM Steering shutdown.')
 
 
@@ -89,4 +90,5 @@ class PWMThrottle(Component):
             pca9685.set_throttle(self.channel, map_range(throttle, -1, 1, self.min_throttle, self.max_throttle))
 
     def shutdown(self):
+        pca9685.set_throttle(0)
         logging.info('PWM Throttle shutdown.')
