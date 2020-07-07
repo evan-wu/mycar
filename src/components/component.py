@@ -12,6 +12,7 @@ class Component(object):
         self.subscription = []
         self.publication = []
         self.can = None
+        self._channel_num_warned = False
 
     def start(self) -> bool:
         """
@@ -45,8 +46,10 @@ class Component(object):
         if self.can is None:
             raise ValueError("{} - can not publish message without 'CAN' defined in config file.".format(self))
 
-        if len(self.publication) != len(content):
+        if len(self.publication) != len(content) and not self._channel_num_warned:
             logging.warning("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
                             .format(self, len(content), len(self.publication)))
+            self._channel_num_warned = True
+
         for i in range(len(self.publication)):
             self.can.publish(self.publication[i], content[i])
