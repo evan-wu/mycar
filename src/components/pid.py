@@ -107,10 +107,10 @@ class PIDLineFollower(Component):
         # car at the middle
         car_position = binary.shape[1] // 2 - self.camera_offset
 
-        polyfit, self.out_img = detect_line_and_polyfit(binary,
-                                                        slide_window_height=self.line_detect_window_height,
-                                                        slide_window_width=self.line_detect_window_width,
-                                                        debug=self.train_mode)
+        polyfit, self.image_out = detect_line_and_polyfit(binary,
+                                                          slide_window_height=self.line_detect_window_height,
+                                                          slide_window_width=self.line_detect_window_width,
+                                                          debug=len(self.publication) == 3)
         y = binary.shape[0] - 1
         x = polyfit[0] * y**2 + polyfit[1] * y + polyfit[2]
 
@@ -250,7 +250,10 @@ class PIDLineFollower(Component):
         def output():
             while self.running:
                 if time.time() - self.last_output > self.output_interval:
-                    self.publish_message(self.steering, self.throttle, self.image_out)
+                    if self.moving:
+                        self.publish_message(self.steering, self.throttle, self.image_out)
+                    else:
+                        self.publish_message(0, 0, None)
                     self.last_output = time.time()
 
         t = Thread(target=output, daemon=True)
@@ -288,7 +291,5 @@ class PIDLineFollower(Component):
                     if not move:  # finish one training iteration
                         self._twiddle_pid_params()
             self.moving = move
-            if not self.moving:
-                self.steering, self.throttle = 0, 0
         elif channel == self.subscription[2]:  # throttle scale
             self.throttle = content
