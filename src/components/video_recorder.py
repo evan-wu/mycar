@@ -2,7 +2,6 @@
 from components import Component
 import cv2
 import logging
-import time
 
 
 class VideoRecorder(Component):
@@ -22,16 +21,14 @@ class VideoRecorder(Component):
                                       frame_rate,
                                       (width, height))
         logging.info('VideoRecorder saving video to {}/{}'.format(path or '.', name or 'capture.avi'))
-        self.running = False
         self.capture = None
         self.record = auto_start
 
     def start(self) -> bool:
-        self.running = True
         return True
 
-    def run(self):
-        while self.running:
+    def run(self, stop_event):
+        while stop_event.is_set():
             if self.capture is not None and self.record:
                 self.writer.write(self.capture)
 
@@ -42,8 +39,6 @@ class VideoRecorder(Component):
             self.record = content
 
     def shutdown(self):
-        self.running = False
         logging.info('Stopping VideoRecorder')
-        time.sleep(.3)
         self.writer.release()
         del self.writer
