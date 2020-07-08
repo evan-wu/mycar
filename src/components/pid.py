@@ -238,19 +238,18 @@ class PIDLineFollower(Component):
         if len(self.subscription) < 2:
             raise ValueError('Subscriptions to the camera image and start/stop signal as input are required!')
 
-        self.running = True
         return True
 
     def shutdown(self):
-        self.running = False
-        time.sleep(.2)
+        pass
 
-    def run(self):
+    def run(self, stop_event):
         # start another thread to output control signals
         def output():
-            while self.running:
+            while True:
                 if time.time() - self.last_output > self.output_interval:
                     if self.moving:
+                        print(self.steering, self.throttle)
                         self.publish_message(self.steering, self.throttle, self.image_out)
                     else:
                         self.publish_message(0, 0, None)
@@ -259,7 +258,7 @@ class PIDLineFollower(Component):
         t = Thread(target=output, daemon=True)
         t.start()
 
-        while self.running:
+        while not stop_event.is_set():
             if self.image is not None and self.moving:
                 line, car = self._find_and_fit_line(self.image)
                 if line > 0:
@@ -292,4 +291,8 @@ class PIDLineFollower(Component):
                         self._twiddle_pid_params()
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
+            self.throttle = content
+        elif channel == 'web_steering':
+            self.steering = content
+        elif channel == 'web_throttle':
             self.throttle = content

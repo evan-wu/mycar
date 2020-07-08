@@ -43,7 +43,7 @@ class WebController(Component):
         logging.info('WebController started.')
         return True
 
-    def run(self):
+    def run(self, stop_event):
         app = Flask(__name__)
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # no cache
 
@@ -63,9 +63,6 @@ class WebController(Component):
 
         @app.route('/control')
         def send_control():
-            if time.time() - self.last_control_time < self.min_control_interval:
-                return ''
-
             control_input = request.args
             logging.info('control input: {}'.format(control_input))
             if 'steer' in control_input:

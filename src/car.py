@@ -6,8 +6,10 @@ from components import Component, CAN, ZmqCAN
 import logging
 import sys
 import os
-from threading import Thread
+from threading import Thread, Event as TEvent
+from multiprocessing import Process, Event as PEvent
 import typing
+import time
 
 
 class Car:
@@ -22,6 +24,8 @@ class Car:
         """
         self.components = {}
         self.can = None
+        self.parallel_process = False
+        self.stop_event = None
 
         with open(config_file) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
@@ -33,6 +37,14 @@ class Car:
         Parse the YML config file and add components to the Car.
         """
         logging.info('Parsing config file to add car components...')
+
+        if 'parallel' in self.config and self.config['parallel'] == 'process':
+            self.parallel_process = True
+            self.stop_event = PEvent()
+            logging.info('Using process level parallel for components.')
+        else:
+            self.parallel_process = False
+            self.stop_event = TEvent()
 
         for component in self.config['components']:
             comp_module = str(component)
@@ -50,90 +62,124 @@ class Car:
                 raise ValueError("submodule '{}' contains no component class!".format(comp_module))
 
             if len(classes) == 1:  # only 1 class defined
-                comp_instance = self._initialize_component_class(component, classes[0])
-                self._add_component(classes[0], comp_instance)
+                self._add_component(component, classes[0])
             else:
-                for cls in classes:  # multiple classes with concrete class name
-                    comp_instance = self._initialize_component_class(component, cls)
-                    self._add_component(cls, comp_instance)
+                for cls in classes:  # multiple classes within module
+                    self._add_component(component, cls)
 
-        # add 'can' to all components.
-        if self.can is None:
-            logging.warning('CAN(can) is not defined in config file, components will not be able to communicate!')
-        else:
-            for comp in self.components.values():
-                if isinstance(self.can, ZmqCAN):
-                    # add ZmqCAN client to component
-                    comp_can = ZmqCAN(server_mode=False)
-                    self._start_component(comp_can)
-                    comp.can = comp_can
-                else:
-                    comp.can = self.can
-
-    def _initialize_component_class(self, component_module, class_name):
-        component_class = getattr(importlib.import_module('components.' + component_module), class_name)
+    def _add_component(self, component_module, component_class_name):
+        component_class = getattr(importlib.import_module('components.' + component_module), component_class_name)
         if not issubclass(component_class, Component):
             raise TypeError("{} is not a 'Component' subclass!".format(component_class))
 
+        # get args dict
         if self.config['components'][component_module] is None:  # empty args
-            args = None
-        elif class_name in self.config['components'][component_module]:
-            args = self.config['components'][component_module][class_name]
+            args = {}
+        elif component_class_name in self.config['components'][component_module]:
+            args = self.config['components'][component_module][component_class_name]
         else:
             args = self.config['components'][component_module]
 
-        if args is None:
-            comp_instance = component_class()
-        else:
-            # set component's listening/publishing channels
-            subscription = args.pop('subscription', None)
-            publication = args.pop('publication', None)
-            comp_instance = component_class(**args)
-            if subscription is not None:
-                comp_instance.subscription.extend(subscription) if isinstance(subscription, typing.Iterable) \
-                    else comp_instance.subscription.append(subscription)
-            if publication is not None:
-                comp_instance.publication.extend(publication) if isinstance(publication, typing.Iterable) \
-                    else comp_instance.subscription.append(publication)
+        self.components[component_class] = args
 
+        if issubclass(component_class, CAN):
+            self.can = component_class
+
+        logging.info('Added car component - ' + component_class_name)
+
+    @staticmethod
+    def _inner_start_component(component_class, args, can_instance_or_class, stop_event):
+        subscription = args.pop('subscription', [])
+        publication = args.pop('publication', [])
+
+        # create component instance
+        comp_instance = component_class(**args)
+
+        # do subscription
+        if not issubclass(component_class, CAN) and can_instance_or_class is not None:
+            if issubclass(can_instance_or_class, ZmqCAN):
+                comp_instance.can = ZmqCAN(False)  # ZmqCAN client
+                comp_instance.can.start()
+                can_thread = Thread(name='{}-CAN_client-run'.format(comp_instance),
+                                    target=comp_instance.can.run,
+                                    args=(stop_event,))
+                can_thread.start()
+            elif isinstance(can_instance_or_class, CAN):  # object
+                comp_instance.can = can_instance_or_class
+            else:  # class
+                comp_instance.can = can_instance_or_class()  # TODO args?
+                comp_instance.can.start()
+                can_thread = Thread(name='{}-CAN-run'.format(comp_instance),
+                                    target=comp_instance.can.run,
+                                    args=(stop_event,))
+                can_thread.start()
+
+            # set component's listening/publishing channels
+            comp_instance.subscription.extend(subscription) if isinstance(subscription, typing.Iterable) \
+                else comp_instance.subscription.append(subscription)
+            comp_instance.publication.extend(publication) if isinstance(publication, typing.Iterable) \
+                else comp_instance.subscription.append(publication)
+
+            if len(comp_instance.subscription) > 0:
+                comp_instance.can.subscribe(comp_instance.subscription, comp_instance.on_message)
+
+        if comp_instance.start():
+            t = Thread(name='{}-run'.format(comp_instance),
+                       target=comp_instance.run,
+                       args=(stop_event,),
+                       daemon=False)
+            t.start()
         return comp_instance
 
-    def _add_component(self, class_name, component_instance):
-        self.components[class_name] = component_instance
-        if isinstance(component_instance, CAN):
-            if isinstance(component_instance, ZmqCAN):
-                if not component_instance.server_mode:
-                    raise TypeError('ZmqCAN should be defined as server_mode: True in config file!')
+    def _start_component(self, component_class, args, can_instance_or_class) -> object:
+        logging.info('Starting {}'.format(component_class))
 
-            self.can = component_instance
-        logging.info('Added car component - ' + class_name)
+        if not self.parallel_process:
+            return Car._inner_start_component(component_class, args, can_instance_or_class, self.stop_event)
+        else:
+            def run_in_process(comp_class, comp_args, can_class, stop_event):
+                Car._inner_start_component(comp_class, comp_args, can_class, stop_event)
 
-    def _start_component(self, comp_instance):
-        long_running = comp_instance.start()
-        if long_running:
-            t = Thread(target=comp_instance.run)
-            t.daemon = True
-            t.start()
+            p = Process(name='{}'.format(component_class),
+                        target=run_in_process,
+                        args=(component_class, args, can_instance_or_class, self.stop_event,),
+                        daemon=True)
+            p.start()
+            return None
 
     def start(self):
         """
         Start the Car, which starts all components.
         """
-        for comp_instance in self.components.values():
-            if comp_instance.can is not None and len(comp_instance.subscription) > 0:
-                comp_instance.can.subscribe(comp_instance.subscription, comp_instance.on_message)
-            self._start_component(comp_instance)
+        # if a shared CAN, start it first
+        if self.can is not None:
+            can_class = self.can
+            args = self.components.pop(self.can)
+            if issubclass(can_class, ZmqCAN):
+                # ZmqCAN server
+                if not args.get('server_mode'):
+                    raise ValueError('ZmqCAN should be configured with server_mode: true')
+
+                self._start_component(can_class, args, None)
+            elif not self.parallel_process:
+                # shared CAN
+                self.can = self._start_component(can_class, args, None)
+
+        for component_class, args in self.components.items():
+            self._start_component(component_class, args, self.can)
 
     def shutdown(self):
         """
         Shutdown the Car, which shutdowns all components.
         """
-        for comp_instance in self.components.values():
-            comp_instance.shutdown()
+        logging.info('Car shutdown...')
+        self.stop_event.set()
+        time.sleep(1)
+        # TODO shutdown components
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
+    logging.basicConfig(format='%(asctime)s:%(module)s:%(process)d-%(threadName)s:%(levelname)s: %(message)s',
                         level=logging.INFO)
 
     if len(sys.argv) < 3:
@@ -145,10 +191,10 @@ def main():
 
     car = Car(config)
     car.start()
-    import time
 
     time.sleep(ttl)
     car.shutdown()
+    time.sleep(1)
 
 
 if __name__ == '__main__':

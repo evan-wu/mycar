@@ -19,16 +19,18 @@ class Component(object):
         Start the component. If the component has long running job to do,
         it should return True, and the 'run()' method will be run in separated thread/process.
         """
-        raise TypeError("{} - 'start' method not implemented!".format(self))
+        return False
 
-    def run(self):
+    def run(self, stop_event):
         """
         [Optional] Long running job.
+        Args:
+            stop_event: indicate whether the independent thread/process should stop.
         """
         pass
 
     def shutdown(self):
-        raise TypeError("{} - 'shutdown' method not implemented!".format(self))
+        pass
 
     def on_message(self, channel, content):
         """

@@ -1,12 +1,10 @@
 # coding=utf-8
 from components import Component
-import time
 from fcntl import ioctl
 import logging
 import os
 import array
 import struct
-from threading import Thread
 
 
 # Credits: Joystick refers to https://github.com/autorope/donkeycar/blob/dev/donkeycar/parts/controller.py
@@ -34,7 +32,6 @@ class JoystickController(Component):
         self.output_interval = output_interval
 
         self.throttle_scale = 1.0
-        self.running = False
         self.poll_delay = 0.1
         self.js = None
         self.js_name = None
@@ -111,8 +108,6 @@ class JoystickController(Component):
         self._init_joystick()
         # init trigger map
         self._init_trigger_maps()
-
-        self.running = True
         return True
 
     def _init_trigger_maps(self):
@@ -181,18 +176,8 @@ class JoystickController(Component):
         self.throttle_scale = round(max(0.0, self.throttle_scale - 0.01), 2)
         logging.info('throttle_scale: {}'.format(self.throttle_scale))
 
-    def run(self):
-        # start independent thread to output control signals
-        def output():
-            while self.running:
-                if time.time() - self.last_output > self.output_interval:
-                    self.publish_message(self.steering, self.throttle, self.autonomous, self.record, self.throttle_scale)
-                    self.last_output = time.time()
-
-        t = Thread(target=output, daemon=True)
-        t.start()
-
-        while self.running:
+    def run(self, stop_event):
+        while not stop_event.is_set():
             # poll the joystick input
             button, button_state, axis, axis_val = self._poll_joystick()
 
@@ -204,6 +189,8 @@ class JoystickController(Component):
 
             if button and button_state == 0 and button in self.button_up_trigger_map and self.button_up_trigger_map[button]:
                 self.button_up_trigger_map[button]()
+
+            self.publish_message(self.steering, self.throttle, self.autonomous, self.record, self.throttle_scale)
 
     def _poll_joystick(self):
         """
@@ -244,5 +231,4 @@ class JoystickController(Component):
         return button, button_state, axis, axis_val
 
     def shutdown(self):
-        self.running = False
-        time.sleep(0.3)
+        pass

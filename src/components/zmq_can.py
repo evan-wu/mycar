@@ -38,23 +38,21 @@ class ZmqCAN(CAN):
 
             # dict of client listeners
             self.listeners = {}
-        self.running = False
 
     def start(self) -> bool:
-        self.running = True
         logging.info("ZMQ ({}) CAN started.".format('server' if self.server_mode else 'client'))
         return True
 
-    def run(self):
+    def run(self, stop_event):
         if self.server_mode:
-            while self.running:
+            while not stop_event.is_set():
                 try:
                     received = self.pull.recv_multipart()
                     self.pub.send_multipart(received)
                 except Exception as e:
                     logging.error('Failed to broadcast message', e)
         else:  # client
-            while self.running:
+            while not stop_event.is_set():
                 try:
                     events = self.sub.poll(timeout=0.005)
                     for i in range(events):
@@ -63,9 +61,6 @@ class ZmqCAN(CAN):
                         self.listeners[channel](channel, pickle.loads(multipart[1]))
                 except Exception as e:
                     logging.error('Failed to consume message', e)
-
-    def shutdown(self):
-        self.running = False
 
     def publish(self, channel: str, message):
         """
@@ -80,6 +75,7 @@ class ZmqCAN(CAN):
         """
         Subscribe to a channel.
         """
+        logging.info('subscribe to {}'.format(channels))
         for channel in channels:
             self.listeners[channel] = listener
             self.sub.subscribe(channel)
