@@ -4,10 +4,10 @@ import cv2
 import logging
 import pickle
 import time
-from threading import Thread
 from applications.cv_utils import undistort_and_tansform
 from applications.line_detection import detect_line_and_polyfit
 import os
+from queue import Queue
 
 
 class PIDLineFollower(Component):
@@ -53,10 +53,9 @@ class PIDLineFollower(Component):
         self.line_detect_window_width = line_detect_window_width
 
         # internal state
-        self.running = False
         self.image = None
         self.moving = False
-        self.image_out = None
+        self.last_not_found = 0
 
         # cross track error
         self.int_cte = 0  # integral cross track error
@@ -79,10 +78,9 @@ class PIDLineFollower(Component):
             self.forward_tune = True
 
         # output control
-        self.output_interval = 0.02
-        self.last_output = 0
+        self.queue = Queue()
         self.steering = 0.0
-        self.throttle = 0.5
+        self.throttle = 1
 
     def _preprocess_image(self, img):
         undist = undistort_and_tansform(img, self.c_mtx, self.c_dist, self.c_corners, self.c_img_size)
@@ -107,26 +105,26 @@ class PIDLineFollower(Component):
         # car at the middle
         car_position = binary.shape[1] // 2 - self.camera_offset
 
-        polyfit, self.image_out = detect_line_and_polyfit(binary,
-                                                          slide_window_height=self.line_detect_window_height,
-                                                          slide_window_width=self.line_detect_window_width,
-                                                          debug=len(self.publication) == 3)
+        polyfit, image_out = detect_line_and_polyfit(binary,
+                                                     slide_window_height=self.line_detect_window_height,
+                                                     slide_window_width=self.line_detect_window_width,
+                                                     debug=len(self.publication) == 3)
         y = binary.shape[0] - 1
         x = polyfit[0] * y**2 + polyfit[1] * y + polyfit[2]
 
         if x <= 0:
             # line not found, stop the car
-            self.throttle = 0
             now = time.time()
             if now - self.last_not_found > 5:
                 logging.warning('Line is not found, check saved line_not_found_*.png image.')
                 cv2.imwrite('./line_not_found_{}.png'.format(now), img)
                 self.last_not_found = now
-            return -1, car_position
+            return -1, car_position, image_out
 
-        return x, car_position
+        return x, car_position, image_out
 
-    def _cte(self, line_center, car_position):
+    @staticmethod
+    def _cte(line_center, car_position):
         """
         cross track error
         """
@@ -244,41 +242,33 @@ class PIDLineFollower(Component):
         pass
 
     def run(self, stop_event):
-        # start another thread to output control signals
-        def output():
-            while True:
-                if time.time() - self.last_output > self.output_interval:
-                    if self.moving:
-                        print(self.steering, self.throttle)
-                        self.publish_message(self.steering, self.throttle, self.image_out)
-                    else:
-                        self.publish_message(0, 0, None)
-                    self.last_output = time.time()
-
-        t = Thread(target=output, daemon=True)
-        t.start()
-
         while not stop_event.is_set():
-            if self.image is not None and self.moving:
-                line, car = self._find_and_fit_line(self.image)
+            image, moving, throttle = self.queue.get()
+
+            if image is not None and moving:
+                line, car, image_out = self._find_and_fit_line(image)
                 if line > 0:
-                    cte = self._cte(line, car)
-                    self.steering = self._pid_steering(cte)
+                    cte = PIDLineFollower._cte(line, car)
+                    steering = self._pid_steering(cte)
 
                     if self.train_mode:
                         self.training_step += 1
                         self.train_sum_error += self.prev_cte ** 2
 
                     # output some info on the output image
-                    cv2.line(self.image_out, (car, 0), (car, self.image_out.shape[0] - 1), (0, 0, 255), thickness=1)
-                    cv2.putText(self.image_out, 'cte: {:.2f}'.format(cte), (30, 400), cv2.FONT_HERSHEY_SIMPLEX,
+                    cv2.line(image_out, (car, 0), (car, image_out.shape[0] - 1), (0, 0, 255), thickness=1)
+                    cv2.putText(image_out, 'cte: {:.2f}'.format(cte), (30, 400), cv2.FONT_HERSHEY_SIMPLEX,
                                 1, (0, 255, 0), thickness=1)
-                    cv2.putText(self.image_out, 'steer: {:.2f}'.format(self.steering), (30, 435),
+                    cv2.putText(image_out, 'steer: {:.2f}'.format(steering), (30, 435),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), thickness=1)
-            else:
-                time.sleep(.5)
 
-            time.sleep(self.steer_interval)
+                    self.publish_message(steering, throttle, image_out)
+                else:
+                    self.publish_message(0, 0, None)
+            else:
+                self.publish_message(0, 0, None)
+
+            time.sleep(self.steer_interval)  # TODO needed?
 
     def on_message(self, channel, content):
         if channel == self.subscription[0]:  # camera image
@@ -292,7 +282,5 @@ class PIDLineFollower(Component):
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
             self.throttle = content
-        elif channel == 'web_steering':
-            self.steering = content
-        elif channel == 'web_throttle':
-            self.throttle = content
+
+        self.queue.put((self.image, self.moving, self.throttle), block=False)
