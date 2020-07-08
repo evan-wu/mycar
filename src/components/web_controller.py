@@ -36,7 +36,6 @@ class WebController(Component):
         self.steering = 0.0
         self.record = False
         self.autonomous = False
-        self.last_control_time = 0
         self.last_stream_time = 0
 
     def start(self) -> bool:
@@ -77,7 +76,6 @@ class WebController(Component):
                 self.autonomous = str(control_input['auto']) == 'true'
 
             self.publish_message(self.steering, self.throttle, self.record, self.autonomous)
-            self.last_control_time = time.time()
             return ''
 
         @app.route('/video_feed')

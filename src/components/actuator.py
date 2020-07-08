@@ -39,8 +39,9 @@ class PWMSteering(Component):
         # init direction
         self.angle = straight_angle
 
-    def start(self):
+    def start(self) -> bool:
         logging.info('PWM Steering started.')
+        return False
 
     def on_message(self, channel, angle):
         """
@@ -80,8 +81,9 @@ class PWMThrottle(Component):
         # init throttle
         self.throttle = 0
 
-    def start(self):
+    def start(self) -> bool:
         logging.info('PWM Throttle started.')
+        return False
 
     def on_message(self, channel, throttle):
         if throttle == 0:

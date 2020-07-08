@@ -17,15 +17,17 @@ class Car:
     The main class.
     """
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, ttl):
         """
         Args:
             config_file: YML config file.
         """
         self.components = {}
+        self.component_instances = []
         self.can = None
         self.parallel_process = False
         self.stop_event = None
+        self.ttl = ttl
 
         with open(config_file) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
@@ -88,7 +90,7 @@ class Car:
         logging.info('Added car component - ' + component_class_name)
 
     @staticmethod
-    def _inner_start_component(component_class, args, can_instance_or_class, stop_event):
+    def _inner_start_component(component_class, args, can_instance_or_class, can_args, stop_event):
         subscription = args.pop('subscription', [])
         publication = args.pop('publication', [])
 
@@ -107,7 +109,7 @@ class Car:
             elif isinstance(can_instance_or_class, CAN):  # object
                 comp_instance.can = can_instance_or_class
             else:  # class
-                comp_instance.can = can_instance_or_class()  # TODO args?
+                comp_instance.can = can_instance_or_class(**can_args)
                 comp_instance.can.start()
                 can_thread = Thread(name='{}-CAN-run'.format(comp_instance),
                                     target=comp_instance.can.run,
@@ -127,22 +129,24 @@ class Car:
             t = Thread(name='{}-run'.format(comp_instance),
                        target=comp_instance.run,
                        args=(stop_event,),
-                       daemon=False)
+                       daemon=True)
             t.start()
         return comp_instance
 
-    def _start_component(self, component_class, args, can_instance_or_class) -> object:
+    def _start_component(self, component_class, args, can_instance_or_class, can_args) -> object:
         logging.info('Starting {}'.format(component_class))
 
         if not self.parallel_process:
-            return Car._inner_start_component(component_class, args, can_instance_or_class, self.stop_event)
+            return Car._inner_start_component(component_class, args, can_instance_or_class, can_args, self.stop_event)
         else:
-            def run_in_process(comp_class, comp_args, can_class, stop_event):
-                Car._inner_start_component(comp_class, comp_args, can_class, stop_event)
+            def run_in_process(comp_class, comp_args, can_class, can_args, stop_event):
+                comp_instance = Car._inner_start_component(comp_class, comp_args, can_class, can_args, stop_event)
+                time.sleep(self.ttl)
+                comp_instance.shutdown()
 
             p = Process(name='{}'.format(component_class),
                         target=run_in_process,
-                        args=(component_class, args, can_instance_or_class, self.stop_event,),
+                        args=(component_class, args, can_instance_or_class, can_args, self.stop_event,),
                         daemon=True)
             p.start()
             return None
@@ -152,21 +156,24 @@ class Car:
         Start the Car, which starts all components.
         """
         # if a shared CAN, start it first
+        can_args = None
         if self.can is not None:
             can_class = self.can
-            args = self.components.pop(self.can)
+            can_args = self.components.pop(self.can)
             if issubclass(can_class, ZmqCAN):
                 # ZmqCAN server
-                if not args.get('server_mode'):
+                if not can_args.get('server_mode'):
                     raise ValueError('ZmqCAN should be configured with server_mode: true')
 
-                self._start_component(can_class, args, None)
+                self._start_component(can_class, can_args, None, None)
             elif not self.parallel_process:
                 # shared CAN
-                self.can = self._start_component(can_class, args, None)
+                self.can = self._start_component(can_class, can_args, None, None)
 
         for component_class, args in self.components.items():
-            self._start_component(component_class, args, self.can)
+            comp = self._start_component(component_class, args, self.can, can_args)
+            if comp is not None:
+                self.component_instances.append(comp)
 
     def shutdown(self):
         """
@@ -175,7 +182,8 @@ class Car:
         logging.info('Car shutdown...')
         self.stop_event.set()
         time.sleep(1)
-        # TODO shutdown components
+        for comp in self.component_instances:
+            comp.shutdown()
 
 
 def main():
@@ -189,7 +197,7 @@ def main():
     config = sys.argv[1]
     ttl = float(sys.argv[2])
 
-    car = Car(config)
+    car = Car(config, ttl)
     car.start()
 
     time.sleep(ttl)
