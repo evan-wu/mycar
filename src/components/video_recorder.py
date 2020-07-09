@@ -30,7 +30,7 @@ class VideoRecorder(Component):
         return True
 
     def run(self, stop_event):
-        while stop_event.is_set():
+        while not stop_event.is_set():
             if self.capture is not None and self.record:
                 self.writer.write(self.capture)
 
