@@ -7,7 +7,8 @@ import time
 from applications.cv_utils import undistort_and_tansform
 from applications.line_detection import detect_line_and_polyfit
 import os
-from queue import Queue
+
+logger = logging.getLogger("PIDLineFollower")
 
 
 class PIDLineFollower(Component):
@@ -78,7 +79,6 @@ class PIDLineFollower(Component):
             self.forward_tune = True
 
         # output control
-        self.queue = Queue()
         self.steering = 0.0
         self.throttle = 1
 
@@ -116,7 +116,7 @@ class PIDLineFollower(Component):
             # line not found, stop the car
             now = time.time()
             if now - self.last_not_found > 5:
-                logging.warning('Line is not found, check saved line_not_found_*.png image.')
+                logger.warning('Line is not found, check saved line_not_found_*.png image.')
                 cv2.imwrite('./line_not_found_{}.png'.format(now), img)
                 self.last_not_found = now
             return -1, car_position, image_out
@@ -131,14 +131,14 @@ class PIDLineFollower(Component):
         return car_position - line_center
 
     def _twiddle_pid_params(self):
-        logging.info('Saving PID coefficients at iteration {}, coefficients {}, delta {}'
+        logger.info('Saving PID coefficients at iteration {}, coefficients {}, delta {}'
                      .format(self.training_epoch, self.pid_coeffs, self.d_coeffs))
         with open(self.pid_params_file + str(self.training_epoch), 'bw') as f:
             pickle.dump(self.pid_coeffs, f)
 
         if self.training_epoch == 0:  # first run
             self.train_best_error = self.train_sum_error / self.training_step
-            logging.info('Iteration {}, steps {}, PID coefficients {}, delta {}, best error {}'
+            logger.info('Iteration {}, steps {}, PID coefficients {}, delta {}, best error {}'
                          .format(self.training_epoch,
                                  self.training_step,
                                  self.pid_coeffs,
@@ -146,7 +146,7 @@ class PIDLineFollower(Component):
                                  self.train_best_error))
             self.pid_coeffs[self.tuning_coeff] += self.d_coeffs[self.tuning_coeff]
         else:
-            logging.info('Iteration {}, steps {}, PID coefficients {}, delta {}, current error {}, best error {}'
+            logger.info('Iteration {}, steps {}, PID coefficients {}, delta {}, current error {}, best error {}'
                          .format(self.training_epoch,
                                  self.training_step,
                                  self.pid_coeffs,
@@ -243,10 +243,8 @@ class PIDLineFollower(Component):
 
     def run(self, stop_event):
         while not stop_event.is_set():
-            image, moving, throttle = self.queue.get()
-
-            if image is not None and moving:
-                line, car, image_out = self._find_and_fit_line(image)
+            if self.image is not None and self.moving:
+                line, car, image_out = self._find_and_fit_line(self.image)
                 if line > 0:
                     cte = PIDLineFollower._cte(line, car)
                     steering = self._pid_steering(cte)
@@ -262,7 +260,7 @@ class PIDLineFollower(Component):
                     cv2.putText(image_out, 'steer: {:.2f}'.format(steering), (30, 435),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), thickness=1)
 
-                    self.publish_message(steering, throttle, image_out)
+                    self.publish_message(steering, self.throttle, image_out)
                 else:
                     self.publish_message(0, 0, None)
             else:
@@ -282,5 +280,3 @@ class PIDLineFollower(Component):
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
             self.throttle = content
-
-        self.queue.put((self.image, self.moving, self.throttle), block=False)

@@ -1,6 +1,8 @@
 # coding=utf-8
 import logging
 
+logger = logging.getLogger("Component")
+
 
 class Component(object):
     """
@@ -49,7 +51,7 @@ class Component(object):
             raise ValueError("{} - can not publish message without 'CAN' defined in config file.".format(self))
 
         if len(self.publication) != len(content) and not self._channel_num_warned:
-            logging.warning("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
+            logger.warning("{} - {} of message(s) to publish, but there is {} pre-defined publication channel(s)."
                             .format(self, len(content), len(self.publication)))
             self._channel_num_warned = True
 
