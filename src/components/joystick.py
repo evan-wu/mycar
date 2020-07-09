@@ -6,6 +6,8 @@ import os
 import array
 import struct
 
+logger = logging.getLogger("JoystickController")
+
 
 # Credits: Joystick refers to https://github.com/autorope/donkeycar/blob/dev/donkeycar/parts/controller.py
 class JoystickController(Component):
@@ -72,7 +74,7 @@ class JoystickController(Component):
         buf = array.array('B', [0] * 64)
         ioctl(self.js, 0x80006a13 + (0x10000 * len(buf)), buf)  # JSIOCGNAME(len)
         self.js_name = buf.tobytes().decode('utf-8')
-        logging.info('Device name: {}'.format(self.js_name))
+        logger.info('Device name: {}'.format(self.js_name))
 
         # Get number of axes and buttons.
         buf = array.array('B', [0])
@@ -101,8 +103,8 @@ class JoystickController(Component):
             self.button_map.append(btn_name)
             self.button_states[btn_name] = 0
 
-        logging.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
-        logging.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
+        logger.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
+        logger.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
 
     def start(self) -> bool:
         self._init_joystick()
@@ -154,27 +156,28 @@ class JoystickController(Component):
         toggle recording on/off
         """
         self.record = not self.record
-        logging.info('recording: {}'.format(self.record))
+        logger.info('recording: {}'.format(self.record))
 
     def _toggle_autonomous(self):
         """
         toggle autonomous on/off
         """
         self.autonomous = not self.autonomous
+        logger.info('autonomous: {}'.format(self.autonomous))
 
     def _increase_max_throttle(self):
         """
         increase throttle scale setting
         """
         self.throttle_scale = round(min(1.0, self.throttle_scale + 0.01), 2)
-        logging.info('throttle_scale: {}'.format(self.throttle_scale))
+        logger.info('throttle_scale: {}'.format(self.throttle_scale))
 
     def _decrease_max_throttle(self):
         """
         decrease throttle scale setting
         """
         self.throttle_scale = round(max(0.0, self.throttle_scale - 0.01), 2)
-        logging.info('throttle_scale: {}'.format(self.throttle_scale))
+        logger.info('throttle_scale: {}'.format(self.throttle_scale))
 
     def run(self, stop_event):
         while not stop_event.is_set():
@@ -218,7 +221,7 @@ class JoystickController(Component):
                 if button:
                     self.button_states[button] = value
                     button_state = value
-                    logging.info('button: {} state: {}'.format(button, value))
+                    logger.info('button: {} state: {}'.format(button, value))
 
             if typev & 0x02:
                 axis = self.axis_map[number]
@@ -226,7 +229,7 @@ class JoystickController(Component):
                     fvalue = value / 32767.0
                     self.axis_states[axis] = fvalue
                     axis_val = fvalue
-                    logging.info('axis: {}, val: {}'.format(axis, fvalue))
+                    logger.info('axis: {}, val: {}'.format(axis, fvalue))
 
         return button, button_state, axis, axis_val
 

@@ -11,6 +11,8 @@ from multiprocessing import Process, Event as PEvent
 import typing
 import time
 
+logger = logging.getLogger("Car")
+
 
 class Car:
     """
@@ -38,12 +40,12 @@ class Car:
         """
         Parse the YML config file and add components to the Car.
         """
-        logging.info('Parsing config file to add car components...')
+        logger.info('Parsing config file to add car components...')
 
         if 'parallel' in self.config and self.config['parallel'] == 'process':
             self.parallel_process = True
             self.stop_event = PEvent()
-            logging.info('Using process level parallel for components.')
+            logger.info('Using process level parallel for components.')
         else:
             self.parallel_process = False
             self.stop_event = TEvent()
@@ -67,7 +69,8 @@ class Car:
                 self._add_component(component, classes[0])
             else:
                 for cls in classes:  # multiple classes within module
-                    self._add_component(component, cls)
+                    if cls in self.config['components'][component]:
+                        self._add_component(component, cls)
 
     def _add_component(self, component_module, component_class_name):
         component_class = getattr(importlib.import_module('components.' + component_module), component_class_name)
@@ -87,7 +90,7 @@ class Car:
         if issubclass(component_class, CAN):
             self.can = component_class
 
-        logging.info('Added car component - ' + component_class_name)
+        logger.info('Added car component - ' + component_class_name)
 
     @staticmethod
     def _inner_start_component(component_class, args, can_instance_or_class, can_args, stop_event):
@@ -134,7 +137,7 @@ class Car:
         return comp_instance
 
     def _start_component(self, component_class, args, can_instance_or_class, can_args) -> object:
-        logging.info('Starting {}'.format(component_class))
+        logger.info('Starting {}'.format(component_class))
 
         if not self.parallel_process:
             return Car._inner_start_component(component_class, args, can_instance_or_class, can_args, self.stop_event)
@@ -179,7 +182,7 @@ class Car:
         """
         Shutdown the Car, which shutdowns all components.
         """
-        logging.info('Car shutdown...')
+        logger.info('Car shutdown...')
         self.stop_event.set()
         time.sleep(1)
         for comp in self.component_instances:
@@ -187,7 +190,7 @@ class Car:
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s:%(module)s:%(process)d-%(threadName)s:%(levelname)s: %(message)s',
+    logging.basicConfig(format='%(asctime)s:%(name)s:%(threadName)s:%(levelname)s: %(message)s',
                         level=logging.INFO)
 
     if len(sys.argv) < 3:

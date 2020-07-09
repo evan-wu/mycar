@@ -7,7 +7,7 @@ from flask import Flask, request, Response, render_template
 import cv2
 
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
-
+logger = logging.getLogger("WebController")
 
 class WebController(Component):
     """
@@ -63,7 +63,7 @@ class WebController(Component):
         @app.route('/control')
         def send_control():
             control_input = request.args
-            logging.info('control input: {}'.format(control_input))
+            logger.info('control input: {}'.format(control_input))
             if 'steer' in control_input:
                 steer = map_range(int(control_input['steer']), -100.0, 100.0, -1.0, 1.0)
                 self.steering = steer

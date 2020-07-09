@@ -16,6 +16,8 @@ class PWMSteering(Component):
     MIN_STEERING = -1
     MAX_STEERING = 1
 
+    logger = logging.getLogger("PWMSteering")
+
     def __init__(self,
                  channel: int,
                  straight_angle: int = 105,
@@ -40,7 +42,7 @@ class PWMSteering(Component):
         self.angle = straight_angle
 
     def start(self) -> bool:
-        logging.info('PWM Steering started.')
+        self.logger.info('PWM Steering started.')
         return False
 
     def on_message(self, channel, angle):
@@ -58,7 +60,7 @@ class PWMSteering(Component):
 
     def shutdown(self):
         pca9685.set_angle(self.channel, self.straight_angle)
-        logging.info('PWM Steering shutdown.')
+        self.logger.info('PWM Steering shutdown.')
 
 
 class PWMThrottle(Component):
@@ -67,6 +69,7 @@ class PWMThrottle(Component):
 
     subscriptions: throttle input
     """
+    logger = logging.getLogger("PWMThrottle")
 
     def __init__(self,
                  channel: int,
@@ -82,7 +85,7 @@ class PWMThrottle(Component):
         self.throttle = 0
 
     def start(self) -> bool:
-        logging.info('PWM Throttle started.')
+        self.logger.info('PWM Throttle started.')
         return False
 
     def on_message(self, channel, throttle):
@@ -93,4 +96,4 @@ class PWMThrottle(Component):
 
     def shutdown(self):
         pca9685.set_throttle(self.channel, 0)
-        logging.info('PWM Throttle shutdown.')
+        self.logger.info('PWM Throttle shutdown.')

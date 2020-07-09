@@ -5,6 +5,8 @@ import logging
 import sys
 import time
 
+logger = logging.getLogger("Camera")
+
 
 class Camera(Component):
     """
@@ -56,7 +58,7 @@ class Camera(Component):
 
         self.camera.read()
         time.sleep(2)  # warm up
-        logging.info('Camera started.')
+        logger.info('Camera started.')
         return True
 
     def _gstreamer_pipeline(self, device, capture_width=3280, capture_height=2464,
@@ -78,4 +80,4 @@ class Camera(Component):
 
     def shutdown(self):
         time.sleep(1)
-        logging.info('Camera shutdown.')
+        logger.info('Camera shutdown.')

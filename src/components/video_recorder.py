@@ -3,6 +3,8 @@ from components import Component
 import cv2
 import logging
 
+logger = logging.getLogger("VideoRecorder")
+
 
 class VideoRecorder(Component):
     """
@@ -20,7 +22,7 @@ class VideoRecorder(Component):
                                       cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
                                       frame_rate,
                                       (width, height))
-        logging.info('VideoRecorder saving video to {}/{}'.format(path or '.', name or 'capture.avi'))
+        logger.info('VideoRecorder saving video to {}/{}'.format(path or '.', name or 'capture.avi'))
         self.capture = None
         self.record = auto_start
 
@@ -39,6 +41,6 @@ class VideoRecorder(Component):
             self.record = content
 
     def shutdown(self):
-        logging.info('Stopping VideoRecorder')
+        logger.info('Stopping VideoRecorder')
         self.writer.release()
         del self.writer
