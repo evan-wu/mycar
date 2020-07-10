@@ -63,7 +63,7 @@ class WebController(Component):
         @app.route('/control')
         def send_control():
             control_input = request.args
-            logger.info('control input: {}'.format(control_input))
+            logger.debug('control input: {}'.format(control_input))
             if 'steer' in control_input:
                 steer = map_range(int(control_input['steer']), -100.0, 100.0, -1.0, 1.0)
                 self.steering = steer
