@@ -23,7 +23,7 @@ class PIDLineFollower(Component):
                  roi: tuple = ((0, 0), (1280, 720)),
                  camera_offset: int = 0,
                  white_threshold=80,
-                 steer_interval=0.02,
+                 steer_interval=0.1,
                  train_mode=False,
                  pid_params_file='./config/pid_coefficients.pkl',
                  line_detect_window_height=50,
@@ -67,7 +67,7 @@ class PIDLineFollower(Component):
                 self.pid_coeffs = pickle.load(f)
         else:
             # some default params
-            self.pid_coeffs = [0.0361935681, 0.03901406179, 0.0003143881]
+            self.pid_coeffs = [0.00361935681, 0.003901406179, 0.0003143881]
 
         if train_mode:
             self.d_coeffs = self.pid_coeffs / 10.0
@@ -266,7 +266,7 @@ class PIDLineFollower(Component):
             else:
                 self.publish_message(0, 0, None)
 
-            time.sleep(self.steer_interval)  # TODO needed?
+            time.sleep(self.steer_interval)
 
     def on_message(self, channel, content):
         if channel == self.subscription[0]:  # camera image

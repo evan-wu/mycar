@@ -10,8 +10,8 @@ components:
     PWMThrottle:
       subscription: ['pid_throttle']
       channel: 1
-      min_throttle: -0.2
-      max_throttle: 0.2
+      min_throttle: -0.171
+      max_throttle: 0.171
 
   camera:
     publication: ['cam/image']
@@ -54,3 +54,4 @@ components:
     calibration_result: './config/calibration_result_640.pkl'
     roi: [[0, 0], [640, 200]]
     camera_offset: 30
+    steer_interval: 0.1
