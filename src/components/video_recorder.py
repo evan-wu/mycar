@@ -28,24 +28,8 @@ class VideoRecorder(Component):
         self.fps_set = False
         self.writer = None
 
-    def run(self, stop_event):
-        start_time = time.time()
-        frames = 0
-        fps = 0
-
-        while not stop_event.is_set():
-            elapsed = time.time() - start_time
-            if self.capture is not None:
-                if elapsed < 1.0 and fps == 0:
-                    frames += 1
-                else:
-                    fps = frames
-
-            if self.capture is not None and self.record:
-                self.writer.write(self.capture)
-
     def on_message(self, channel, content):
-        if channel == self.subscription[0]:
+        if channel == self.subscription[0] and content is not None:
             self.capture = content
 
             if self.start_time == 0:
