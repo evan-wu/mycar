@@ -86,7 +86,7 @@ def undistort_and_tansform(image, mtx, dist, calibrate_corners, calibrate_image_
     """
     Do undistortion and then use the chessboard outer 4 corners to do perspective transform.
     """
-    undistorted = undistort(image, mtx, dist, calibrate_image_size)
+    undistorted = undistort(image, mtx, dist)
 
     # For source points I'm grabbing the outer four detected corners
     nx, ny = chessboard_corners

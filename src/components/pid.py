@@ -23,7 +23,7 @@ class PIDLineFollower(Component):
                  roi: tuple = ((0, 0), (1280, 720)),
                  camera_offset: int = 0,
                  white_threshold=80,
-                 steer_interval=0.2,
+                 steer_interval=0.02,
                  train_mode=False,
                  pid_params_file='./config/pid_coefficients.pkl',
                  line_detect_window_height=50,
@@ -90,8 +90,7 @@ class PIDLineFollower(Component):
 
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-        blur = cv2.GaussianBlur(gray, (9, 9), 0)
-        _, binary = cv2.threshold(blur, self.white_threshold, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(gray, self.white_threshold, 255, cv2.THRESH_BINARY_INV)
         return binary
 
     def _find_and_fit_line(self, img) -> tuple:
@@ -245,6 +244,7 @@ class PIDLineFollower(Component):
         while not stop_event.is_set():
             if self.image is not None and self.moving:
                 line, car, image_out = self._find_and_fit_line(self.image)
+                self.image = None
                 if line > 0:
                     cte = PIDLineFollower._cte(line, car)
                     steering = self._pid_steering(cte)
