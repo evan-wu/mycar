@@ -105,7 +105,7 @@ class Car:
             if issubclass(can_instance_or_class, ZmqCAN):
                 comp_instance.can = ZmqCAN(False)  # ZmqCAN client
                 comp_instance.can.start()
-                can_thread = Thread(name='{}-CAN_client-run'.format(comp_instance),
+                can_thread = Thread(name='{}-CAN_client-run'.format(component_class.__name__),
                                     target=comp_instance.can.run,
                                     args=(stop_event,))
                 can_thread.start()
@@ -114,7 +114,7 @@ class Car:
             else:  # class
                 comp_instance.can = can_instance_or_class(**can_args)
                 comp_instance.can.start()
-                can_thread = Thread(name='{}-CAN-run'.format(comp_instance),
+                can_thread = Thread(name='{}-CAN-run'.format(can_instance_or_class.__name__),
                                     target=comp_instance.can.run,
                                     args=(stop_event,))
                 can_thread.start()
@@ -129,7 +129,7 @@ class Car:
                 comp_instance.can.subscribe(comp_instance.subscription, comp_instance.on_message)
 
         if comp_instance.start():
-            t = Thread(name='{}-run'.format(comp_instance),
+            t = Thread(name='{}-run'.format(component_class.__name__),
                        target=comp_instance.run,
                        args=(stop_event,),
                        daemon=True)
