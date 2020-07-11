@@ -36,8 +36,9 @@ class VideoRecorder(Component):
                 self.start_time = time.time()
                 self.fps += 1
 
-            if not self.fps_set and (time.time() - self.start_time) < 1.0:
-                self.fps += 1
+            elapsed = (time.time() - self.start_time)
+            if not self.fps_set and elapsed < 1.0:
+                self.fps = round((self.fps + 1.0) / elapsed, 2)
             elif not self.fps_set:
                 logger.info('Got FPS: {}, width: {}, height: {}'.format(self.fps, self.capture.shape[1],
                                                                         self.capture.shape[0]))
@@ -54,5 +55,6 @@ class VideoRecorder(Component):
 
     def shutdown(self):
         logger.info('Stopping VideoRecorder')
-        self.writer.release()
-        del self.writer
+        if self.writer is not None:
+            self.writer.release()
+            del self.writer
