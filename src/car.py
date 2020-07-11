@@ -169,21 +169,20 @@ class Car:
                 if not can_args.get('server_mode'):
                     raise ValueError('ZmqCAN should be configured with server_mode: true')
 
-                self._start_component(can_class, can_args, None, None)
-
-                if not self.parallel_process:
-                    # shared ZmqCAN client
-                    can_args['server_mode'] = False
-                    self.can = self._start_component(can_class, can_args, None, None)
+                can_server = self._start_component(can_class, can_args, None, None)
+                self._register_component(can_server)
             elif not self.parallel_process:
                 # shared CAN
                 self.can = self._start_component(can_class, can_args, None, None)
-                self.component_instances.append(self.can)
+                self._register_component(self.can)
 
         for component_class, args in self.components.items():
             comp = self._start_component(component_class, args, self.can, can_args)
-            if comp is not None:
-                self.component_instances.append(comp)
+            self._register_component(comp)
+
+    def _register_component(self, comp):
+        if comp is not None:
+            self.component_instances.append(comp)
 
     def shutdown(self):
         """
