@@ -60,7 +60,12 @@ class ZmqCAN(CAN):
                     for i in range(events):
                         multipart = self.sub.recv_multipart()
                         channel = multipart[0].decode()
-                        self.listeners[channel](channel, pickle.loads(multipart[1]))
+                        message = pickle.loads(multipart[1])
+                        for listener in self.listeners[channel]:
+                            try:
+                                listener(channel, message)
+                            except Exception as e1:
+                                logger.error('{} failed to consume message'.format(listener), e1)
                 except Exception as e:
                     logger.error('Failed to consume message', e)
 
@@ -79,5 +84,8 @@ class ZmqCAN(CAN):
         """
         logger.info('subscribe to {}'.format(channels))
         for channel in channels:
-            self.listeners[channel] = listener
+            if channel not in self.listeners:
+                self.listeners[channel] = [listener]
+            else:
+                self.listeners[channel].append(listener)
             self.sub.subscribe(channel)
