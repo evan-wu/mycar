@@ -169,7 +169,7 @@ class JoystickController(Component):
         """
         increase throttle scale setting
         """
-        self.throttle_scale = round(min(1.0, self.throttle_scale + 0.01), 2)
+        self.throttle_scale = round(self.throttle_scale + 0.01, 2)
         logger.info('throttle_scale: {}'.format(self.throttle_scale))
 
     def _decrease_max_throttle(self):

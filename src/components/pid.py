@@ -80,7 +80,7 @@ class PIDLineFollower(Component):
 
         # output control
         self.steering = 0.0
-        self.throttle = 1
+        self.throttle = 0.5
 
     def _preprocess_image(self, img):
         undist = undistort_and_tansform(img, self.c_mtx, self.c_dist, self.c_corners, self.c_img_size)
@@ -279,4 +279,4 @@ class PIDLineFollower(Component):
                         self._twiddle_pid_params()
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
-            self.throttle = content
+            self.throttle *= float(content)

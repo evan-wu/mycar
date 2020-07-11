@@ -10,8 +10,8 @@ components:
     PWMThrottle:
       subscription: ['pid_throttle']
       channel: 1
-      min_throttle: -0.171
-      max_throttle: 0.171
+      min_throttle: -0.4
+      max_throttle: 0.4
 
   camera:
     publication: ['cam/image']
