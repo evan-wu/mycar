@@ -173,7 +173,7 @@ class Car:
 
                 if not self.parallel_process:
                     # shared ZmqCAN client
-                    can_args.pop('server_mode')
+                    can_args['server_mode'] = False
                     self.can = self._start_component(can_class, can_args, None, None)
             elif not self.parallel_process:
                 # shared CAN
