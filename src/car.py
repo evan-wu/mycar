@@ -10,6 +10,7 @@ from threading import Thread, Event as TEvent
 from multiprocessing import Process, Event as PEvent
 import typing
 import time
+import inspect
 
 logger = logging.getLogger("Car")
 
@@ -102,19 +103,19 @@ class Car:
 
         # do subscription
         if not issubclass(component_class, CAN) and can_instance_or_class is not None:
-            if issubclass(can_instance_or_class, ZmqCAN):
+            if inspect.isclass(can_instance_or_class) and issubclass(can_instance_or_class, ZmqCAN):
                 comp_instance.can = ZmqCAN(False)  # ZmqCAN client
                 comp_instance.can.start()
-                can_thread = Thread(name='{}-CAN_client-run'.format(comp_instance),
+                can_thread = Thread(name='{}-CAN_client-run'.format(component_class.__name__),
                                     target=comp_instance.can.run,
                                     args=(stop_event,))
                 can_thread.start()
-            elif isinstance(can_instance_or_class, CAN):  # object
+            elif isinstance(can_instance_or_class, CAN):  # shared instance
                 comp_instance.can = can_instance_or_class
             else:  # class
                 comp_instance.can = can_instance_or_class(**can_args)
                 comp_instance.can.start()
-                can_thread = Thread(name='{}-CAN-run'.format(comp_instance),
+                can_thread = Thread(name='{}-CAN-run'.format(can_instance_or_class.__name__),
                                     target=comp_instance.can.run,
                                     args=(stop_event,))
                 can_thread.start()
@@ -129,7 +130,7 @@ class Car:
                 comp_instance.can.subscribe(comp_instance.subscription, comp_instance.on_message)
 
         if comp_instance.start():
-            t = Thread(name='{}-run'.format(comp_instance),
+            t = Thread(name='{}-run'.format(component_class.__name__),
                        target=comp_instance.run,
                        args=(stop_event,),
                        daemon=True)
@@ -168,15 +169,20 @@ class Car:
                 if not can_args.get('server_mode'):
                     raise ValueError('ZmqCAN should be configured with server_mode: true')
 
-                self._start_component(can_class, can_args, None, None)
+                can_server = self._start_component(can_class, can_args, None, None)
+                self._register_component(can_server)
             elif not self.parallel_process:
                 # shared CAN
                 self.can = self._start_component(can_class, can_args, None, None)
+                self._register_component(self.can)
 
         for component_class, args in self.components.items():
             comp = self._start_component(component_class, args, self.can, can_args)
-            if comp is not None:
-                self.component_instances.append(comp)
+            self._register_component(comp)
+
+    def _register_component(self, comp):
+        if comp is not None:
+            self.component_instances.append(comp)
 
     def shutdown(self):
         """

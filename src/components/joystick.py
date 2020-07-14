@@ -169,7 +169,7 @@ class JoystickController(Component):
         """
         increase throttle scale setting
         """
-        self.throttle_scale = round(min(1.0, self.throttle_scale + 0.01), 2)
+        self.throttle_scale = round(self.throttle_scale + 0.01, 2)
         logger.info('throttle_scale: {}'.format(self.throttle_scale))
 
     def _decrease_max_throttle(self):
@@ -221,7 +221,7 @@ class JoystickController(Component):
                 if button:
                     self.button_states[button] = value
                     button_state = value
-                    logger.info('button: {} state: {}'.format(button, value))
+                    logger.debug('button: {} state: {}'.format(button, value))
 
             if typev & 0x02:
                 axis = self.axis_map[number]
@@ -229,7 +229,7 @@ class JoystickController(Component):
                     fvalue = value / 32767.0
                     self.axis_states[axis] = fvalue
                     axis_val = fvalue
-                    logger.info('axis: {}, val: {}'.format(axis, fvalue))
+                    logger.debug('axis: {}, val: {}'.format(axis, fvalue))
 
         return button, button_state, axis, axis_val
 

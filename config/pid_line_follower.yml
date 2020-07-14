@@ -10,15 +10,17 @@ components:
     PWMThrottle:
       subscription: ['pid_throttle']
       channel: 1
-      min_throttle: -0.2
-      max_throttle: 0.2
+      min_throttle: -0.4
+      max_throttle: 0.4
 
   camera:
     publication: ['cam/image']
     device: '/dev/video0'
+    width: 640
+    height: 360
 
   video_recorder:
-    subscription: ['cam/image', 'js_record']
+    subscription: ['pid_image_out', 'js_record']
 
   joystick:
     device: '/dev/input/js0'
@@ -48,7 +50,8 @@ components:
 
   pid:
     subscription: ['cam/image', 'js_autonomous', 'js_throttle_scale']
-    publication: ['pid_steering', 'pid_throttle', 'image_out']
-    calibration_result: './config/calibration_result.pkl'
-    roi: [[0, 0], [1280, 600]]
-    camera_offset: 60
+    publication: ['pid_steering', 'pid_throttle', 'pid_image_out']
+    calibration_result: './config/calibration_result_640.pkl'
+    roi: [[0, 210], [640, 310]]
+    camera_offset: 30
+    steer_interval: 0.1

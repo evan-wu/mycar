@@ -5,8 +5,8 @@ import logging
 import pickle
 import time
 from applications.cv_utils import undistort_and_tansform
-from applications.line_detection import detect_line_and_polyfit
 import os
+import numpy as np
 
 logger = logging.getLogger("PIDLineFollower")
 
@@ -23,11 +23,12 @@ class PIDLineFollower(Component):
                  roi: tuple = ((0, 0), (1280, 720)),
                  camera_offset: int = 0,
                  white_threshold=80,
-                 steer_interval=0.2,
+                 steer_interval=0.1,
                  train_mode=False,
                  pid_params_file='./config/pid_coefficients.pkl',
                  line_detect_window_height=50,
-                 line_detect_window_width=120
+                 line_detect_window_width=120,
+                 throttle=0.5
                  ):
         """
         Args:
@@ -67,7 +68,7 @@ class PIDLineFollower(Component):
                 self.pid_coeffs = pickle.load(f)
         else:
             # some default params
-            self.pid_coeffs = [0.0361935681, 0.03901406179, 0.0003143881]
+            self.pid_coeffs = [-0.00361935681, -0.003901406179, -0.0003143881]
 
         if train_mode:
             self.d_coeffs = self.pid_coeffs / 10.0
@@ -80,7 +81,8 @@ class PIDLineFollower(Component):
 
         # output control
         self.steering = 0.0
-        self.throttle = 1
+        self.throttle = throttle
+        self.throttle_scale = 1.0
 
     def _preprocess_image(self, img):
         undist = undistort_and_tansform(img, self.c_mtx, self.c_dist, self.c_corners, self.c_img_size)
@@ -88,15 +90,15 @@ class PIDLineFollower(Component):
         roi_top_left, roi_bottom_right = self.roi[0], self.roi[1]
         roi = undist[roi_top_left[1]:roi_bottom_right[1], roi_top_left[0]:roi_bottom_right[0]]
 
+        #cv2.imwrite('./image_out_roi_{}.png'.format(time.time()), roi)
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-        blur = cv2.GaussianBlur(gray, (9, 9), 0)
-        _, binary = cv2.threshold(blur, self.white_threshold, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(gray, self.white_threshold, 255, cv2.THRESH_BINARY_INV)
         return binary
 
-    def _find_and_fit_line(self, img) -> tuple:
+    def _find_line(self, img) -> tuple:
         """
-        Use pixel histogram to find line, fit a polynomial to calculate line position.
+        Use pixel histogram to find line.
 
         Returns:
             line_position, car_position
@@ -105,23 +107,16 @@ class PIDLineFollower(Component):
         # car at the middle
         car_position = binary.shape[1] // 2 - self.camera_offset
 
-        polyfit, image_out = detect_line_and_polyfit(binary,
-                                                     slide_window_height=self.line_detect_window_height,
-                                                     slide_window_width=self.line_detect_window_width,
-                                                     debug=len(self.publication) == 3)
-        y = binary.shape[0] - 1
-        x = polyfit[0] * y**2 + polyfit[1] * y + polyfit[2]
+        histogram = np.sum(binary, axis=0)
+        line_base = np.argmax(histogram)
 
-        if x <= 0:
-            # line not found, stop the car
-            now = time.time()
-            if now - self.last_not_found > 5:
-                logger.warning('Line is not found, check saved line_not_found_*.png image.')
-                cv2.imwrite('./line_not_found_{}.png'.format(now), img)
-                self.last_not_found = now
-            return -1, car_position, image_out
+        # Create an output image to draw on and visualize the result
+        image_out = None
+        if len(self.publication) == 3:
+            image_out = np.dstack((binary, binary, binary))
+            cv2.circle(image_out, (line_base, binary.shape[0] - 2), 3, (0, 255, 0), thickness=2)
 
-        return x, car_position, image_out
+        return line_base, car_position, image_out
 
     @staticmethod
     def _cte(line_center, car_position):
@@ -132,27 +127,27 @@ class PIDLineFollower(Component):
 
     def _twiddle_pid_params(self):
         logger.info('Saving PID coefficients at iteration {}, coefficients {}, delta {}'
-                     .format(self.training_epoch, self.pid_coeffs, self.d_coeffs))
+                    .format(self.training_epoch, self.pid_coeffs, self.d_coeffs))
         with open(self.pid_params_file + str(self.training_epoch), 'bw') as f:
             pickle.dump(self.pid_coeffs, f)
 
         if self.training_epoch == 0:  # first run
             self.train_best_error = self.train_sum_error / self.training_step
             logger.info('Iteration {}, steps {}, PID coefficients {}, delta {}, best error {}'
-                         .format(self.training_epoch,
-                                 self.training_step,
-                                 self.pid_coeffs,
-                                 self.d_coeffs,
-                                 self.train_best_error))
+                        .format(self.training_epoch,
+                                self.training_step,
+                                self.pid_coeffs,
+                                self.d_coeffs,
+                                self.train_best_error))
             self.pid_coeffs[self.tuning_coeff] += self.d_coeffs[self.tuning_coeff]
         else:
             logger.info('Iteration {}, steps {}, PID coefficients {}, delta {}, current error {}, best error {}'
-                         .format(self.training_epoch,
-                                 self.training_step,
-                                 self.pid_coeffs,
-                                 self.d_coeffs,
-                                 self.train_sum_error / self.training_step,
-                                 self.train_best_error))
+                        .format(self.training_epoch,
+                                self.training_step,
+                                self.pid_coeffs,
+                                self.d_coeffs,
+                                self.train_sum_error / self.training_step,
+                                self.train_best_error))
 
             current_error = self.train_sum_error / self.training_step
             if self.forward_tune:
@@ -162,6 +157,7 @@ class PIDLineFollower(Component):
 
                     # next param
                     self.tuning_coeff = (self.tuning_coeff + 1) % 3
+                    self.pid_coeffs[self.tuning_coeff] += self.d_coeffs[self.tuning_coeff]
                 else:
                     self.pid_coeffs[self.tuning_coeff] -= 2 * self.d_coeffs[self.tuning_coeff]  # revert
                     self.forward_tune = False
@@ -177,18 +173,16 @@ class PIDLineFollower(Component):
 
                 # next param
                 self.tuning_coeff = (self.tuning_coeff + 1) % 3
+                self.pid_coeffs[self.tuning_coeff] += self.d_coeffs[self.tuning_coeff]
 
-            # next iteration
-            self.pid_coeffs[self.tuning_coeff] += self.d_coeffs[self.tuning_coeff]
-
-        # reset
+        # next iteration
         self.training_step = 0
         self.train_sum_error = 0
         self.training_epoch += 1
 
     def _pid_steering(self, cte):
         """
-        Use the equation: new_steering = c0 * cte + c1 * cte_integrational + c2 * cte_differential
+        Use the equation: new_steering = Kp * cte + Ki * cte_integrational + Kd * cte_differential
         to calculate the new steering.
         """
         diff_cte = cte - self.prev_cte
@@ -221,7 +215,7 @@ class PIDLineFollower(Component):
             pid_i = int_limit_min
 
         # sum up
-        steer = -(pid_p + pid_d + pid_i)
+        steer = pid_p + pid_d + pid_i
 
         # apply limits
         if steer < -1:
@@ -244,7 +238,8 @@ class PIDLineFollower(Component):
     def run(self, stop_event):
         while not stop_event.is_set():
             if self.image is not None and self.moving:
-                line, car, image_out = self._find_and_fit_line(self.image)
+                line, car, image_out = self._find_line(self.image)
+                self.image = None
                 if line > 0:
                     cte = PIDLineFollower._cte(line, car)
                     steering = self._pid_steering(cte)
@@ -254,19 +249,23 @@ class PIDLineFollower(Component):
                         self.train_sum_error += self.prev_cte ** 2
 
                     # output some info on the output image
+                    print(image_out.shape)
                     cv2.line(image_out, (car, 0), (car, image_out.shape[0] - 1), (0, 0, 255), thickness=1)
-                    cv2.putText(image_out, 'cte: {:.2f}'.format(cte), (30, 400), cv2.FONT_HERSHEY_SIMPLEX,
+                    cv2.putText(image_out, 'cte: {:.2f}'.format(cte),
+                                (30, int(image_out.shape[0]/2)),
+                                cv2.FONT_HERSHEY_SIMPLEX,
                                 1, (0, 255, 0), thickness=1)
-                    cv2.putText(image_out, 'steer: {:.2f}'.format(steering), (30, 435),
+                    cv2.putText(image_out, 'steer: {:.2f}'.format(steering),
+                                (30, int(image_out.shape[0]/2 + 25)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), thickness=1)
-
-                    self.publish_message(steering, self.throttle, image_out)
+                    #cv2.imwrite('./image_out_{}.png'.format(time.time()), image_out)
+                    self.publish_message(steering, self.throttle * self.throttle_scale, image_out)
                 else:
                     self.publish_message(0, 0, None)
             else:
                 self.publish_message(0, 0, None)
 
-            time.sleep(self.steer_interval)  # TODO needed?
+            time.sleep(self.steer_interval)
 
     def on_message(self, channel, content):
         if channel == self.subscription[0]:  # camera image
@@ -279,4 +278,4 @@ class PIDLineFollower(Component):
                         self._twiddle_pid_params()
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
-            self.throttle = content
+            self.throttle_scale *= float(content)

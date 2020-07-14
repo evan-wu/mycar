@@ -2,6 +2,7 @@
 from components import Component
 import cv2
 import logging
+import time
 
 logger = logging.getLogger("VideoRecorder")
 
@@ -13,34 +14,47 @@ class VideoRecorder(Component):
     subscriptions: camera input, record switch
     """
 
-    def __init__(self, width: int = 1280, height: int = 720, frame_rate: int = 7, path: str = None, name: str = None,
+    def __init__(self, path: str = None, name: str = None,
                  auto_start: bool = False):
         super(VideoRecorder, self).__init__()
-        self.width = width
-        self.height = height
-        self.writer = cv2.VideoWriter((path or '.') + '/' + (name or 'capture.avi'),
-                                      cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
-                                      frame_rate,
-                                      (width, height))
-        logger.info('VideoRecorder saving video to {}/{}'.format(path or '.', name or 'capture.avi'))
+        logger.info('VideoRecorder will save video to {}/{}'.format(path or '.', name or 'capture.avi'))
+        self.path = path
+        self.name = name
         self.capture = None
         self.record = auto_start
 
-    def start(self) -> bool:
-        return True
-
-    def run(self, stop_event):
-        while stop_event.is_set():
-            if self.capture is not None and self.record:
-                self.writer.write(self.capture)
+        self.start_time = 0
+        self.fps = 0
+        self.fps_set = False
+        self.writer = None
 
     def on_message(self, channel, content):
-        if channel == self.subscription[0]:
+        if channel == self.subscription[0] and content is not None:
             self.capture = content
+
+            if self.start_time == 0:
+                self.start_time = time.time()
+
+            elapsed = (time.time() - self.start_time)
+            if not self.fps_set and elapsed < 1.0:
+                self.fps += 1
+            elif not self.fps_set:
+                self.fps = round((self.fps + 1.0) / elapsed, 2)
+                logger.info('Got FPS: {}, width: {}, height: {}'.format(self.fps, self.capture.shape[1],
+                                                                        self.capture.shape[0]))
+                self.fps_set = True
+                self.writer = cv2.VideoWriter((self.path or '.') + '/' + (self.name or 'capture.avi'),
+                                              cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                                              self.fps,
+                                              (self.capture.shape[1], self.capture.shape[0]))
+            elif self.record:
+                self.writer.write(self.capture)
+
         elif channel == self.subscription[1]:
             self.record = content
 
     def shutdown(self):
         logger.info('Stopping VideoRecorder')
-        self.writer.release()
-        del self.writer
+        if self.writer is not None:
+            self.writer.release()
+            del self.writer
