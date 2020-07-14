@@ -52,6 +52,6 @@ components:
     subscription: ['cam/image', 'js_autonomous', 'js_throttle_scale']
     publication: ['pid_steering', 'pid_throttle', 'pid_image_out']
     calibration_result: './config/calibration_result_640.pkl'
-    roi: [[0, 0], [640, 200]]
+    roi: [[0, 210], [640, 310]]
     camera_offset: 30
     steer_interval: 0.1
