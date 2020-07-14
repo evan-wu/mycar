@@ -34,12 +34,12 @@ class VideoRecorder(Component):
 
             if self.start_time == 0:
                 self.start_time = time.time()
-                self.fps += 1
 
             elapsed = (time.time() - self.start_time)
             if not self.fps_set and elapsed < 1.0:
-                self.fps = round((self.fps + 1.0) / elapsed, 2)
+                self.fps += 1
             elif not self.fps_set:
+                self.fps = round((self.fps + 1.0) / elapsed, 2)
                 logger.info('Got FPS: {}, width: {}, height: {}'.format(self.fps, self.capture.shape[1],
                                                                         self.capture.shape[0]))
                 self.fps_set = True
