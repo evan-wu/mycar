@@ -26,8 +26,6 @@ class PIDLineFollower(Component):
                  steer_interval=0.1,
                  train_mode=False,
                  pid_params_file='./config/pid_coefficients.pkl',
-                 line_detect_window_height=50,
-                 line_detect_window_width=120,
                  throttle=0.5
                  ):
         """
@@ -39,8 +37,6 @@ class PIDLineFollower(Component):
             steer_interval: the interval between each steering control
             train_mode: whether training the PID params.
             pid_params_file: where to save(under train mode) or load the PID params.
-            line_detect_window_height: line detection slide window height.
-            line_detect_window_width: line detection slide window width.
         """
         super(PIDLineFollower, self).__init__()
         with open(calibration_result, 'br') as f:
@@ -51,8 +47,6 @@ class PIDLineFollower(Component):
         self.steer_interval = steer_interval
         self.train_mode = train_mode
         self.pid_params_file = pid_params_file
-        self.line_detect_window_height = line_detect_window_height
-        self.line_detect_window_width = line_detect_window_width
 
         # internal state
         self.image = None
