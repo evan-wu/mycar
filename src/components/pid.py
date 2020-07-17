@@ -84,7 +84,6 @@ class PIDLineFollower(Component):
         roi_top_left, roi_bottom_right = self.roi[0], self.roi[1]
         roi = undist[roi_top_left[1]:roi_bottom_right[1], roi_top_left[0]:roi_bottom_right[0]]
 
-        #cv2.imwrite('./image_out_roi_{}.png'.format(time.time()), roi)
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
         _, binary = cv2.threshold(gray, self.white_threshold, 255, cv2.THRESH_BINARY_INV)
@@ -252,7 +251,6 @@ class PIDLineFollower(Component):
                     cv2.putText(image_out, 'steer: {:.2f}'.format(steering),
                                 (30, int(image_out.shape[0]/2 + 25)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), thickness=1)
-                    #cv2.imwrite('./image_out_{}.png'.format(time.time()), image_out)
                     self.publish_message(steering, self.throttle * self.throttle_scale, image_out)
                 else:
                     self.publish_message(0, 0, None)
