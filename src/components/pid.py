@@ -270,4 +270,4 @@ class PIDLineFollower(Component):
                         self._twiddle_pid_params()
             self.moving = move
         elif channel == self.subscription[2]:  # throttle scale
-            self.throttle_scale *= float(content)
+            self.throttle_scale = float(content)
