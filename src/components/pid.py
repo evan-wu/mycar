@@ -242,7 +242,6 @@ class PIDLineFollower(Component):
                         self.train_sum_error += self.prev_cte ** 2
 
                     # output some info on the output image
-                    print(image_out.shape)
                     cv2.line(image_out, (car, 0), (car, image_out.shape[0] - 1), (0, 0, 255), thickness=1)
                     cv2.putText(image_out, 'cte: {:.2f}'.format(cte),
                                 (30, int(image_out.shape[0]/2)),
